@@ -20,15 +20,13 @@ const DashboardScreen = () => {
     const [carritos, setCarritos] = useState<{ [key: string]: Carrito }>({});
     const [clientes, setClientes] = useState<{ [key: string]: Cliente }>({});
     const [rentas, setRentas] = useState<Renta[]>([]);
-    const [barData, setBarData] = useState<any[]>([]);
-    const [lineData, setLineData] = useState<any[]>([]);
-    const [pieData, setPieData] = useState<any[]>([]);
     const [animValuesDisplay, setAnimValuesDisplay] = useState({
         totalCarritos: 0,
         freeCarritos: 0,
         occupiedCarritos: 0,
         nuevosClientes: 0,
     });
+    const [remainingTimes, setRemainingTimes] = useState<{ [key: string]: string }>({});
 
     const animValues = {
         totalCarritos: new Animated.Value(0),
@@ -45,15 +43,20 @@ const DashboardScreen = () => {
     const fetchCarritos = async () => {
         try {
             const response = await GolfService.obtenerCarritos();
-            const carritosMap = response.result.reduce((acc: { [key: string]: Carrito }, carrito: Carrito) => {
-                acc[carrito.carritoID.toString()] = carrito;
-                return acc;
-            }, {});
-            setCarritos(carritosMap);
+            if (Array.isArray(response)) {
+                const carritosMap = response.reduce((acc: { [key: string]: Carrito }, carrito: Carrito) => {
+                    acc[carrito.carritoID.toString()] = carrito;
+                    return acc;
+                }, {});
+                setCarritos(carritosMap);
+            } else {
+                console.error('Unexpected response format:', response);
+            }
         } catch (error: any) {
             console.error('Error fetching carritos:', error.message || error);
         }
     };
+    
 
     const fetchClientes = async () => {
         try {
@@ -83,50 +86,11 @@ const DashboardScreen = () => {
         }
     };
 
-    const fetchChartData = async () => {
-        try {
-            const carritosResponse = await GolfService.obtenerCarritos();
-            const rentasResponse = await RentaService.obtenerRentas();
-            const clientesResponse = await ClienteService.obtenerClientes();
-
-            console.log('Carritos Response:', carritosResponse);
-            console.log('Rentas Response:', rentasResponse);
-            console.log('Clientes Response:', clientesResponse);
-
-            const barChartData = [
-                {
-                    data: rentasResponse.map((renta: { carritoFK: any; }) => renta.carritoFK),
-                    svg: { fill: 'rgb(134, 65, 244)' },
-                },
-            ];
-
-            const lineChartData = [
-                {
-                    data: clientesResponse.result.map((cliente: { registradoEn: any; }) => new Date(cliente.registradoEn).getTime()), // assuming cliente has a 'registradoEn' field
-                    svg: { stroke: 'rgb(134, 65, 244)' },
-                },
-            ];
-
-            const pieChartData = rentasResponse.map((renta: { carritoFK: any; color: any; }) => ({
-                value: renta.carritoFK, // or any other field representing value
-                svg: { fill: renta.color }, // assuming you have a color field
-                key: `pie-${renta.carritoFK}`,
-            }));
-
-            setBarData(barChartData);
-            setLineData(lineChartData);
-            setPieData(pieChartData);
-        } catch (error) {
-            console.error('Error fetching chart data:', error);
-        }
-    };
-
     useEffect(() => {
         checkNetwork();
         fetchCarritos();
         fetchClientes();
         fetchRentas();
-        fetchChartData();
     }, []);
 
     useEffect(() => {
@@ -181,6 +145,18 @@ const DashboardScreen = () => {
             animValues.nuevosClientes.removeAllListeners();
         };
     }, [carritos, clientes, rentas]);
+
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            const updatedRemainingTimes = rentas.reduce((acc, renta) => {
+                acc[renta.rentaID.toString()] = getRemainingTime(renta.horaFinal);
+                return acc;
+            }, {} as { [key: string]: string });
+            setRemainingTimes(updatedRemainingTimes);
+        }, 1000); // Update every second
+
+        return () => clearInterval(intervalId);
+    }, [rentas]);
 
     const getStatus = (renta: Renta) => {
         const currentDate = new Date();
@@ -302,7 +278,7 @@ const DashboardScreen = () => {
                                     <DataTable.Cell>{new Date(renta.horaInicio).toLocaleDateString()}</DataTable.Cell>
                                     <DataTable.Cell>{new Date(renta.horaFinal).toLocaleDateString()}</DataTable.Cell>
                                     <DataTable.Cell style={styles.statusCell}><Text style={[styles.statusText, getStatusStyle(renta)]}>{getStatus(renta)}</Text></DataTable.Cell>
-                                    {isLargeScreen && <DataTable.Cell>{`${Math.round(getProgress(renta))}%`}</DataTable.Cell>}
+                                    {isLargeScreen && <DataTable.Cell>{remainingTimes[renta.rentaID.toString()]}</DataTable.Cell>}
                                 </DataTable.Row>
                             ))}
                         </DataTable>
@@ -310,12 +286,26 @@ const DashboardScreen = () => {
 
                     <View style={[styles.graphContainer, isLargeScreen ? styles.graphContainerLarge : styles.graphContainerSmall]}>
                         <Title style={styles.sectionTitle}>Comparación de Datos</Title>
-                        <ComparisonCharts barData={barData} lineData={lineData} />
+                        <ComparisonCharts />
                     </View>
                 </View>
             </ScrollView>
         </View>
     );
+};
+
+const getRemainingTime = (horaFinal: string | number | Date) => {
+    const currentTime = new Date().getTime();
+    const endTime = new Date(horaFinal).getTime();
+    const remainingTime = endTime - currentTime;
+
+    if (remainingTime <= 0) {
+        return "0 horas 0 minutos";
+    }
+
+    const hours = Math.floor(remainingTime / (1000 * 60 * 60));
+    const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours} horas ${minutes} minutos`;
 };
 
 const styles = StyleSheet.create({

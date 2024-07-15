@@ -6,18 +6,34 @@ const VendedorService = {
   obtenerVendedores: async () => {
     try {
       const response = await axios.get(`${API_URL}/Vendedor`);
-      return response.data;
+      if (response.data && response.data.suceded) {
+        return response.data.result;
+      } else {
+        throw new Error('API response not successful');
+      }
     } catch (error) {
-      console.error('Error fetching vendors:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Error fetching vendors:', error.response?.data);
+      } else {
+        console.error('Unknown error:', error);
+      }
       throw error;
     }
   },
   obtenerVendedorPorId: async (id: number) => {
     try {
       const response = await axios.get(`${API_URL}/Vendedor/${id}`);
-      return response.data;
+      if (response.data && response.data.suceded) {
+        return response.data.result;
+      } else {
+        throw new Error('API response not successful');
+      }
     } catch (error) {
-      console.error(`Error fetching vendor with ID ${id}:`, error);
+      if (axios.isAxiosError(error)) {
+        console.error(`Error fetching vendor with ID ${id}:`, error.response?.data);
+      } else {
+        console.error('Unknown error:', error);
+      }
       throw error;
     }
   },

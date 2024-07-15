@@ -1,12 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, Button } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import RentaService from '../../services/Renta/RentaService';  // Ajusta la ruta según la ubicación real del archivo
-import { Renta } from '../../services/Renta/typesR'; // Ajusta la ruta según la ubicación real del archivo
-import NotificationModal from '../NotificationModal';  // Ajusta la ruta según la ubicación real del archivo
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import RentaService from '../../services/Renta/RentaService';
+import ClienteService from '../../services/Cliente/ClienteService';
+import VendedorService from '../../services/Vendedor/VendedorService';
+import GolfService from '../../services/GolfService';
+import { Renta } from '../../services/Renta/typesR';
+import { Cliente } from '../../services/Cliente/typesC';
+import { Vendedor } from '../../services/Vendedor/typesV';
+import EventModal from '../EventModal';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+interface Carrito {
+  carritoID: number;
+  modelo: string;
+  marca: string;
+  precioHora: number;
+  imgurl: string;
+  enrenta: boolean;
+}
 
 const CalendarScreen: React.FC = () => {
   const [month, setMonth] = useState(new Date().getMonth());
@@ -18,29 +31,63 @@ const CalendarScreen: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const [selectedEvents, setSelectedEvents] = useState<Renta[]>([]);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
-  const [showCreateEventForm, setShowCreateEventForm] = useState(false);
-  const [clienteFK, setClienteFK] = useState('');
-  const [carritoFK, setCarritoFK] = useState('');
-  const [horaInicio, setHoraInicio] = useState('');
-  const [total, setTotal] = useState('');
-  const [estado, setEstado] = useState('En progreso');
-  const [notificationVisible, setNotificationVisible] = useState(false);
-  const [notificationType, setNotificationType] = useState<'help' | 'success' | 'warning' | 'error'>('success');
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+  const [carritos, setCarritos] = useState<Carrito[]>([]);
 
   useEffect(() => {
     fetchRentas();
+    fetchClientes();
+    fetchVendedores();
+    fetchCarritos();
     getNoOfDays();
   }, [month, year]);
 
   const fetchRentas = async () => {
-    const rentas = await RentaService.obtenerRentas();
-    if (rentas) {
-      const formattedRentas = rentas.map((renta: Renta) => ({
-        ...renta,
-        horaInicio: new Date(renta.horaInicio),
-        horaFinal: new Date(renta.horaFinal),
-      }));
-      setEvents(formattedRentas);
+    try {
+      const rentas = await RentaService.obtenerRentas();
+      if (rentas) {
+        const formattedRentas = rentas.map((renta: Renta) => ({
+          ...renta,
+          horaInicio: new Date(renta.horaInicio),
+          horaFinal: new Date(renta.horaFinal),
+        }));
+        setEvents(formattedRentas);
+      }
+    } catch (error) {
+      console.error('Error fetching rentals:', error);
+    }
+  };
+
+  const fetchClientes = async () => {
+    try {
+      const response = await ClienteService.obtenerClientes();
+      if (response.suceded) {
+        setClientes(response.result);
+      } else {
+        console.error('Error fetching clients:', response.message);
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
+
+  const fetchVendedores = async () => {
+    try {
+      const response = await VendedorService.obtenerVendedores();
+      setVendedores(response.result);
+    } catch (error) {
+      console.error('Error fetching vendors:', error);
+    }
+  };
+
+  const fetchCarritos = async () => {
+    try {
+      const response = await GolfService.obtenerCarritos();
+      const availableCarritos = response.filter((carrito: Carrito) => !carrito.enrenta);
+      setCarritos(availableCarritos);
+    } catch (error) {
+      console.error('Error fetching carts:', error);
     }
   };
 
@@ -62,52 +109,6 @@ const CalendarScreen: React.FC = () => {
     });
     setSelectedEvents(selectedDayEvents);
     setShowOptionsModal(true);
-  };
-
-  const addEvent = async () => {
-    if (!clienteFK || !carritoFK || !horaInicio || !total) {
-      setNotificationType('warning');
-      setNotificationVisible(true);
-      return;
-    }
-
-    const startDateTime = new Date(year, month, selectedDate || 1, ...horaInicio.split(':').map(Number));
-    const totalHours = parseFloat(total);
-    const endDateTime = new Date(startDateTime);
-    endDateTime.setHours(endDateTime.getHours() + totalHours);
-
-    const newRenta: Renta = {
-      rentaID: Math.random(),
-      clienteFK: parseInt(clienteFK),
-      carritoFK: parseInt(carritoFK),
-      vendedorFK: 0,
-      horaInicio: startDateTime,
-      horaFinal: endDateTime,
-      total: totalHours,
-      estado: estado,
-      clienteID: undefined,
-      carritoID: '',
-      status: '',
-      event_title: undefined,
-      event_theme: ''
-    };
-
-    const result = await RentaService.agregarRenta(newRenta);
-    if (result) {
-      setEvents([...events, newRenta]);
-      setClienteFK('');
-      setCarritoFK('');
-      setHoraInicio('');
-      setTotal('');
-      setEstado('En progreso');
-      setOpenEventModal(false);
-      setShowCreateEventForm(false);
-      setNotificationType('success');
-      setNotificationVisible(true);
-    } else {
-      setNotificationType('error');
-      setNotificationVisible(true);
-    }
   };
 
   const getNoOfDays = () => {
@@ -153,46 +154,32 @@ const CalendarScreen: React.FC = () => {
     setYear(year + 1);
   };
 
-  const getEventColor = (date: number) => {
-    const event = events.find(e => {
-      const eventDate = new Date(e.horaInicio);
-      return (
-        eventDate.getDate() === date &&
-        eventDate.getMonth() === month &&
-        eventDate.getFullYear() === year
-      );
-    });
-
-    if (event) {
-      switch (event.status?.trim()) {
-        case 'En progreso':
-          return { backgroundColor: 'rgba(0, 128, 0, 0.2)', color: 'green' };
-        case 'Próximamente':
-          return { backgroundColor: 'rgba(0, 0, 255, 0.2)', color: 'blue' };
-        case 'Cancelado':
-          return { backgroundColor: 'rgba(255, 0, 0, 0.2)', color: 'red' };
-        case 'Retrasado':
-          return { backgroundColor: 'rgba(255, 165, 0, 0.2)', color: 'orange' };
-        default:
-          return {};
-      }
+  const getEventColor = (status: string) => {
+    switch (status) {
+      case 'En progreso':
+        return '#32CD32';
+      case 'Completado':
+        return '#1E90FF';
+      case 'Cancelado':
+        return '#FF4500';
+      case 'Próxima renta':
+        return '#FFD700';
+      default:
+        return '#e2e8f0';
     }
-    return {};
   };
 
-  const getEventStyle = (event: Renta) => {
-    switch (event.status?.trim()) {
-      case 'En progreso':
-        return styles.eventInProgress;
-      case 'Próximamente':
-        return styles.eventUpcoming;
-      case 'Cancelado':
-        return styles.eventCancelled;
-      case 'Retrasado':
-        return styles.eventDelayed;
-      default:
-        return {};
-    }
+  const renderEventItem = (event: Renta) => {
+    const cliente = clientes.find(c => c.clienteID === parseInt(event.clienteFK));
+    const carrito = carritos.find(c => c.carritoID === parseInt(event.carritoFK));
+
+    return (
+      <View key={event.rentaID} style={[styles.eventItem, { backgroundColor: getEventColor(event.status) }]}>
+        <Text numberOfLines={1} style={styles.eventText}>
+          {cliente ? cliente.nombre : 'Cliente desconocido'} - {carrito ? carrito.modelo : 'Modelo desconocido'}
+        </Text>
+      </View>
+    );
   };
 
   return (
@@ -240,114 +227,28 @@ const CalendarScreen: React.FC = () => {
               style={styles.dateItem}
               onPress={() => showEventModal(date)}
             >
-              <View style={[styles.dateCircle, getEventColor(date)]}>
-                <Text style={[styles.dateText, getEventColor(date)]}>{date}</Text>
+              <View style={[styles.dateCircle, isToday(date) && styles.todayCircle]}>
+                <Text style={styles.dateText}>{date}</Text>
               </View>
-              {events
-                .filter(event => new Date(event.horaInicio).getDate() === date && new Date(event.horaInicio).getMonth() === month && new Date(event.horaInicio).getFullYear() === year)
-                .map((event, index) => (
-                  <View key={index} style={[styles.eventItem, getEventStyle(event)]}>
-                    <Text numberOfLines={1} style={styles.eventText}>
-                      {event.carritoFK} - {event.status}
-                    </Text>
-                  </View>
-                ))}
+              <ScrollView style={styles.eventScroll}>
+                {events
+                  .filter(event => new Date(event.horaInicio).getDate() === date && new Date(event.horaInicio).getMonth() === month && new Date(event.horaInicio).getFullYear() === year)
+                  .map((event, index) => (
+                    renderEventItem(event)
+                  ))}
+              </ScrollView>
             </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
 
-      <Modal visible={showOptionsModal} transparent={true} animationType="fade">
-        <View style={styles.modalBackground}>
-          <View style={styles.modalContainer}>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setShowOptionsModal(false)}>
-              <Text style={styles.closeButtonText}>×</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Select an option for {selectedDate} {MONTH_NAMES[month]} {year}</Text>
-            <View style={styles.modalButtons}>
-              <Button title="View Reservations" onPress={() => { setShowOptionsModal(false); setShowCreateEventForm(false); setOpenEventModal(true); }} />
-              <Button title="Create Reservation" onPress={() => { setShowOptionsModal(false); setShowCreateEventForm(true); setOpenEventModal(true); }} />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={openEventModal} transparent={true} animationType="fade">
-        <View style={styles.modalBackground}>
-          <View style={styles.modalContainer}>
-            <TouchableOpacity style={styles.closeButton} onPress={() => { setOpenEventModal(false); setShowCreateEventForm(false); }}>
-              <Text style={styles.closeButtonText}>×</Text>
-            </TouchableOpacity>
-            {showCreateEventForm ? (
-              <>
-                <Text style={styles.modalTitle}>Create Reservation for {selectedDate} {MONTH_NAMES[month]} {year}</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Cliente FK"
-                  value={clienteFK}
-                  onChangeText={setClienteFK}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Carrito FK"
-                  value={carritoFK}
-                  onChangeText={setCarritoFK}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Hora Inicio (HH:MM)"
-                  value={horaInicio}
-                  onChangeText={setHoraInicio}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Total Horas"
-                  value={total}
-                  onChangeText={setTotal}
-                />
-                <Picker
-                  selectedValue={estado}
-                  style={styles.picker}
-                  onValueChange={(itemValue, itemIndex) => setEstado(itemValue)}
-                >
-                  <Picker.Item label="En progreso" value="En progreso" />
-                  <Picker.Item label="Próximamente" value="Próximamente" />
-                  <Picker.Item label="Cancelado" value="Cancelado" />
-                  <Picker.Item label="Retrasado" value="Retrasado" />
-                </Picker>
-                <Button title="Save Event" onPress={addEvent} />
-              </>
-            ) : (
-              <>
-                <Text style={styles.modalTitle}>Reservations for {selectedDate} {MONTH_NAMES[month]} {year}</Text>
-                <ScrollView>
-                  {selectedEvents.length === 0 ? (
-                    <View style={styles.noEvent}>
-                      <Text>There are no events planned for {MONTH_NAMES[month]} {selectedDate}.</Text>
-                    </View>
-                  ) : (
-                    selectedEvents.map((event, index) => (
-                      <View key={index} style={styles.eventCard}>
-                        <View style={[styles.eventStatus, { backgroundColor: event.status === 'En progreso' ? 'green' : event.status === 'Próximamente' ? 'blue' : event.status === 'Cancelado' ? 'red' : 'orange' }]} />
-                        <Text style={styles.eventText}>Client: {event.clienteFK}</Text>
-                        <Text style={styles.eventText}>Cart: {event.carritoFK}</Text>
-                        <Text style={styles.eventText}>Start: {new Date(event.horaInicio).toLocaleTimeString()}</Text>
-                        <Text style={styles.eventText}>End: {new Date(event.horaFinal).toLocaleTimeString()}</Text>
-                        <Text style={styles.eventText}>Status: {event.status}</Text>
-                      </View>
-                    ))
-                  )}
-                </ScrollView>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      <NotificationModal
-        visible={notificationVisible}
-        onClose={() => setNotificationVisible(false)}
-        type={notificationType}
+      <EventModal
+        visible={showOptionsModal}
+        onClose={() => setShowOptionsModal(false)}
+        onViewReservations={() => {}}
+        onCreateClient={() => {}}
+        selectedDate={selectedDate}
+        carritos={carritos}
       />
     </View>
   );
@@ -422,7 +323,7 @@ const styles = StyleSheet.create({
   },
   dateItem: {
     width: '14.28%',
-    height: 80,
+    height: 100,
     borderColor: '#e5e7eb',
     borderWidth: 1,
     alignItems: 'center',
@@ -436,111 +337,28 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
   },
+  todayCircle: {
+    backgroundColor: '#FFD700', // Color para el día de hoy
+  },
   dateText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1f2937',
   },
-  today: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedDate: {
-    backgroundColor: '#3b82f6',
-  },
-  selectedDateText: {
-    color: '#fff',
+  eventScroll: {
+    maxHeight: 60,
+    width: '100%',
   },
   eventItem: {
     marginTop: 4,
-    padding: 2,
+    padding: 4,
     borderRadius: 4,
-    backgroundColor: '#e2e8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   eventText: {
     fontSize: 12,
     color: '#1f2937',
-  },
-  eventInProgress: {
-    backgroundColor: 'rgba(0, 128, 0, 0.2)',
-  },
-  eventUpcoming: {
-    backgroundColor: 'rgba(0, 0, 255, 0.2)',
-  },
-  eventCancelled: {
-    backgroundColor: 'rgba(255, 0, 0, 0.2)',
-  },
-  eventDelayed: {
-    backgroundColor: 'rgba(255, 165, 0, 0.2)',
-  },
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    width: '90%',
-    height: '70%',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    position: 'relative',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: '#1f2937',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#1f2937',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    padding: 8,
-    borderRadius: 8,
-    marginBottom: 16,
-    color: '#1f2937',
-  },
-  picker: {
-    height: 50,
-    width: '100%',
-    marginBottom: 16,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  noEvent: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  eventCard: {
-    padding: 4,
-    borderRadius: 4,
-    marginBottom: 4,
-    backgroundColor: '#fff',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  eventStatus: {
-    width: 8,
-    height: '100%',
-    borderRadius: 4,
   },
 });
 

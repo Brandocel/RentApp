@@ -1,142 +1,198 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
-import * as scale from 'd3-scale';
-import { Text } from 'react-native-paper';
-import { BarChart, LineChart, Grid, XAxis, YAxis } from 'react-native-svg-charts';
-import * as shape from 'd3-shape';
-import { Animated } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { BarChart, LineChart, ProgressChart } from 'react-native-chart-kit';
 
-const ComparisonCharts = ({ barData, lineData }: { barData: any, lineData: any }) => {
-    const { width: screenWidth } = useWindowDimensions();
-    const isLargeScreen = screenWidth >= 768;
+const screenWidth = Dimensions.get('window').width;
 
-    const [barAnimation] = useState(new Animated.Value(0));
+const data = [
+    { y: '2014', a: 50, b: 90 },
+    { y: '2015', a: 65, b: 75 },
+    { y: '2016', a: 50, b: 50 },
+    { y: '2017', a: 75, b: 60 },
+    { y: '2018', a: 80, b: 65 },
+    { y: '2019', a: 90, b: 70 },
+    { y: '2020', a: 100, b: 75 },
+    { y: '2021', a: 115, b: 75 },
+    { y: '2022', a: 120, b: 85 },
+    { y: '2023', a: 145, b: 85 },
+    { y: '2024', a: 160, b: 95 }
+];
+
+const lineData = {
+    labels: data.map(item => item.y),
+    datasets: [
+        {
+            data: data.map(item => item.a),
+            color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+            strokeWidth: 2
+        },
+        {
+            data: data.map(item => item.b),
+            color: (opacity = 1) => `rgba(244, 65, 65, ${opacity})`,
+            strokeWidth: 2
+        }
+    ],
+    legend: ['Total Income', 'Total Outcome']
+};
+
+const barData = {
+    labels: data.map(item => item.y),
+    datasets: [
+        {
+            data: data.map(item => item.a)
+        },
+        {
+            data: data.map(item => item.b)
+        }
+    ],
+    legend: ['Total Income', 'Total Outcome']
+};
+
+const progressData = {
+    labels: ["Swim", "Bike", "Run"],
+    data: [0.4, 0.6, 0.8]
+};
+
+const chartConfig = {
+    backgroundColor: '#1B213B',
+    backgroundGradientFrom: '#1B213B',
+    backgroundGradientTo: '#1B213B',
+    decimalPlaces: 2,
+    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+    style: {
+        borderRadius: 16
+    },
+    propsForDots: {
+        r: '6',
+        strokeWidth: '2',
+        stroke: '#ffa726'
+    }
+};
+
+const ComparisonCharts = () => {
+    const [currentChart, setCurrentChart] = useState('line');
     const [lineAnimation] = useState(new Animated.Value(0));
+    const [barAnimation] = useState(new Animated.Value(0));
+    const [progressAnimation] = useState(new Animated.Value(0));
 
     useEffect(() => {
-        Animated.timing(barAnimation, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: true,
-        }).start();
-        Animated.timing(lineAnimation, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: true,
-        }).start();
-    }, []);
+        switch (currentChart) {
+            case 'line':
+                Animated.timing(lineAnimation, {
+                    toValue: 1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }).start();
+                break;
+            case 'bar':
+                Animated.timing(barAnimation, {
+                    toValue: 1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }).start();
+                break;
+            case 'progress':
+                Animated.timing(progressAnimation, {
+                    toValue: 1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }).start();
+                break;
+            default:
+                break;
+        }
+    }, [currentChart]);
 
-    const contentInset = { top: 20, bottom: 20 };
-
-    if (!barData || barData.length === 0 || !lineData || lineData.length === 0) {
-        return <Text style={styles.errorText}>No data available</Text>;
-    }
-
-    const AnimatedBarChart = Animated.createAnimatedComponent(BarChart);
-    const AnimatedLineChart = Animated.createAnimatedComponent(LineChart);
+    const renderChart = () => {
+        switch (currentChart) {
+            case 'line':
+                return (
+                    <Animated.View style={{ opacity: lineAnimation }}>
+                        <LineChart
+                            data={lineData}
+                            width={screenWidth - 30}
+                            height={220}
+                            chartConfig={chartConfig}
+                            bezier
+                        />
+                    </Animated.View>
+                );
+            case 'bar':
+                return (
+                    <Animated.View style={{ opacity: barAnimation }}>
+                        <BarChart
+                            data={barData}
+                            width={screenWidth - 30}
+                            height={220}
+                            chartConfig={chartConfig}
+                            yAxisLabel="$"
+                            yAxisSuffix="k"
+                        />
+                    </Animated.View>
+                );
+            case 'progress':
+                return (
+                    <Animated.View style={{ opacity: progressAnimation }}>
+                        <ProgressChart
+                            data={progressData}
+                            width={screenWidth - 30}
+                            height={220}
+                            chartConfig={chartConfig}
+                        />
+                    </Animated.View>
+                );
+            default:
+                return null;
+        }
+    };
 
     return (
-        <View style={isLargeScreen ? styles.containerHorizontal : styles.containerVertical}>
-            <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>Comparación de Carritos Rentados</Text>
-                <View style={{ height: 300, flexDirection: 'row' }}> {/* Adjust height for larger screens */}
-                    <YAxis
-                        data={barData[0].data}
-                        contentInset={contentInset}
-                        svg={{
-                            fill: 'grey',
-                            fontSize: 10,
-                        }}
-                        numberOfTicks={10}
-                        formatLabel={(value) => `${value}`}
-                    />
-                    <AnimatedBarChart
-                        style={{ flex: 1, marginLeft: 10 }}
-                        data={barData}
-                        yAccessor={({ item }) => item as number}
-                        contentInset={contentInset}
-                        spacingInner={0.2}
-                        yMin={0}
-                    >
-                        <Grid />
-                    </AnimatedBarChart>
-                </View>
-                <XAxis
-                    style={{ marginHorizontal: -10 }}
-                    data={barData[0].data}
-                    formatLabel={(value, index) => index + 1}
-                    contentInset={{ left: 10, right: 10 }}
-                    svg={{ fontSize: 10, fill: 'grey' }}
-                    scale={scale.scaleBand}
-                />
+        <View style={styles.container}>
+            <View style={styles.buttonContainer}>
+                <TouchableOpacity style={styles.button} onPress={() => setCurrentChart('line')}>
+                    <Text style={styles.buttonText}>Line Chart</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.button} onPress={() => setCurrentChart('bar')}>
+                    <Text style={styles.buttonText}>Bar Chart</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.button} onPress={() => setCurrentChart('progress')}>
+                    <Text style={styles.buttonText}>Progress Chart</Text>
+                </TouchableOpacity>
             </View>
-
             <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>Tráfico de Usuarios en el Tiempo</Text>
-                <View style={{ height: 300, flexDirection: 'row' }}> {/* Adjust height for larger screens */}
-                    <YAxis
-                        data={lineData[0].data}
-                        contentInset={contentInset}
-                        svg={{
-                            fill: 'grey',
-                            fontSize: 10,
-                        }}
-                        numberOfTicks={10}
-                        formatLabel={(value) => `${value}`}
-                    />
-                    <AnimatedLineChart
-                        style={{ flex: 1, marginLeft: 10 }}
-                        data={lineData}
-                        yAccessor={({ item }) => item as number}
-                        contentInset={contentInset}
-                        curve={shape.curveNatural}
-                        svg={{
-                            strokeWidth: 2,
-                            stroke: 'rgb(134, 65, 244)',
-                            strokeDasharray: [10, 5],
-                            strokeDashoffset: lineAnimation.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [200, 0],
-                            }),
-                        }}
-                    >
-                        <Grid />
-                    </AnimatedLineChart>
-                </View>
-                <XAxis
-                    style={{ marginHorizontal: -10 }}
-                    data={lineData[0].data}
-                    formatLabel={(value, index) => index + 1}
-                    contentInset={{ left: 10, right: 10 }}
-                    svg={{ fontSize: 10, fill: 'grey' }}
-                />
+                {renderChart()}
             </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    containerHorizontal: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
+    container: {
+        flex: 1,
+        backgroundColor: '#1B213B',
+        padding: 20,
+        borderRadius: 10
     },
-    containerVertical: {
-        flexDirection: 'column',
+    buttonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginVertical: 10
+    },
+    button: {
+        backgroundColor: '#007bff',
+        borderRadius: 5,
+        padding: 10,
+        marginHorizontal: 5
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 14
     },
     chartContainer: {
-        flex: 1,
-        margin: 10,
-    },
-    chartTitle: {
-        textAlign: 'center',
-        fontSize: 16,
-        marginBottom: 10,
-    },
-    errorText: {
-        textAlign: 'center',
-        fontSize: 16,
-        color: 'red',
-    },
+        alignItems: 'center',
+        justifyContent: 'center'
+    }
 });
 
 export default ComparisonCharts;
