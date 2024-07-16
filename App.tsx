@@ -11,9 +11,16 @@ import Login from './app/components/login/login';
 import { PaperProvider } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProtectedRoute from './app/services/guards/ProtectedRoute';
+import { Carrito } from './app/components/Rent-Car/Car-interface';
 
 const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
+
+// Definición de tipos de navegación
+export type RootStackParamList = {
+  CarScreen: undefined;
+  DetallesCarrito: { carrito: Carrito };
+};
 
 
 function DrawerNavigator() {
