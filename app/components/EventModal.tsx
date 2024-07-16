@@ -6,17 +6,18 @@ import ClienteService from '../services/Cliente/ClienteService';
 import GolfService from '../services/GolfService';
 import VendedorService from '../services/Vendedor/VendedorService';
 import { Carrito } from '../services/CardRent/Car-interface';
+import NotificationModal from './NotificationModal'; // Importa el modal de notificaciones
 
 interface Props {
   carritos: Carrito[];
   visible: boolean;
+  onCreateClient : () => void;
   onClose: () => void;
   onViewReservations: () => void;
-  onCreateClient: () => void;
   selectedDate: number | null;
 }
 
-const EventModal: React.FC<Props> = ({ visible, onClose, onViewReservations, onCreateClient, selectedDate }) => {
+const EventModal: React.FC<Props> = ({ visible, onClose, onViewReservations, selectedDate }) => {
   const [clientes, setClientes] = useState<{ clienteID: string; nombre: string; }[]>([]);
   const [carritos, setCarritos] = useState<{ carritoID: string; nombre: string; }[]>([]);
   const [vendedores, setVendedores] = useState<{ vendedorID: string; nombre: string; }[]>([]);
@@ -27,7 +28,11 @@ const EventModal: React.FC<Props> = ({ visible, onClose, onViewReservations, onC
   const [horaFinal, setHoraFinal] = useState('');
   const [total, setTotal] = useState('');
   const [status, setStatus] = useState('En progreso');
-
+  const [activeSection, setActiveSection] = useState<'reservations' | 'createClient' | 'createReservation'>('reservations');
+  const [newClient, setNewClient] = useState({ nombre: '', email: '', telefono: '' });
+  const [notificationVisible, setNotificationVisible] = useState(false);
+  const [notificationType, setNotificationType] = useState<'help' | 'success' | 'warning' | 'error'>('success');
+  
   useEffect(() => {
     fetchData();
   }, []);
@@ -35,7 +40,7 @@ const EventModal: React.FC<Props> = ({ visible, onClose, onViewReservations, onC
   useEffect(() => {
     if (selectedDate) {
       const today = new Date();
-      const month = today.getMonth(); // Declare and assign the 'month' variable
+      const month = today.getMonth();
       const selectedDay = new Date(new Date().getFullYear(), month, selectedDate);
       setHoraInicio(new Date(selectedDay.setHours(today.getHours(), today.getMinutes(), today.getSeconds())).toISOString());
     }
@@ -107,10 +112,36 @@ const EventModal: React.FC<Props> = ({ visible, onClose, onViewReservations, onC
     console.log('Datos enviados:', newReservation);
     const result = await RentaService.agregarRenta(newReservation);
     if (result) {
-      alert('Reserva creada exitosamente');
+      setNotificationType('success');
+      setNotificationVisible(true);
       onClose();
     } else {
-      alert('Error al crear la reserva');
+      setNotificationType('error');
+      setNotificationVisible(true);
+    }
+  };
+
+  const handleCreateClient = async () => {
+    if (!newClient.nombre || !newClient.email || !newClient.telefono) {
+      alert('Por favor complete todos los campos.');
+      return;
+    }
+
+    try {
+      const result = await ClienteService.crearCliente(newClient);
+      if (result.succeeded) {
+        setNotificationType('success');
+        setNotificationVisible(true);
+        fetchData();
+        setActiveSection('reservations');
+      } else {
+        setNotificationType('error');
+        setNotificationVisible(true);
+      }
+    } catch (error) {
+      console.error('Error creating client:', error);
+      setNotificationType('success');
+      setNotificationVisible(true);
     }
   };
 
@@ -118,105 +149,152 @@ const EventModal: React.FC<Props> = ({ visible, onClose, onViewReservations, onC
     <Modal visible={visible} animationType="slide" transparent={true}>
       <View style={styles.modalContainer}>
         <ScrollView contentContainerStyle={styles.modalContent}>
-          <View style={styles.cardsContainer}>
-            <View style={styles.cardColumn}>
-              <View style={styles.cardDetails}>
-                <View style={styles.cardIcons}>
-                  <Image source={{ uri: 'https://imgpanda.com/upload/ib/1yIWjyG41o.png' }} style={styles.iconImage} />
+          {activeSection === 'reservations' && (
+            <View style={styles.cardsContainer}>
+              <View style={styles.cardColumn}>
+                <View style={styles.cardDetails}>
+                  <View style={styles.cardIcons}>
+                    <Image source={{ uri: 'https://imgpanda.com/upload/ib/1yIWjyG41o.png' }} style={styles.iconImage} />
+                  </View>
+                  <Text style={styles.cardTitle}>Ver Reservaciones</Text>
+                  <Text style={styles.cardDescription}>Lorem ipsum dolor sit amet, consectne auctor aliquet. Aenean sollicitudi bibendum auctor.</Text>
+                  <TouchableOpacity onPress={onViewReservations} style={styles.readMoreBtn}>
+                    <Text style={styles.readMoreBtnText}>Ver</Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.cardTitle}>Ver Reservaciones</Text>
-                <Text style={styles.cardDescription}>Lorem ipsum dolor sit amet, consectne auctor aliquet. Aenean sollicitudi bibendum auctor.</Text>
-                <TouchableOpacity onPress={onViewReservations} style={styles.readMoreBtn}>
-                  <Text style={styles.readMoreBtnText}>Ver</Text>
-                </TouchableOpacity>
               </View>
-            </View>
 
-            <View style={styles.cardColumn}>
-              <View style={styles.cardDetails}>
-                <View style={styles.cardIcons}>
-                  <Image source={{ uri: 'https://imgpanda.com/upload/ib/Q4tSh2ctkH.png' }} style={styles.iconImage} />
+              <View style={styles.cardColumn}>
+                <View style={styles.cardDetails}>
+                  <View style={styles.cardIcons}>
+                    <Image source={{ uri: 'https://imgpanda.com/upload/ib/Q4tSh2ctkH.png' }} style={styles.iconImage} />
+                  </View>
+                  <Text style={styles.cardTitle}>Crear Cliente</Text>
+                  <Text style={styles.cardDescription}>Lorem ipsum dolor sit amet, consectne auctor aliquet. Aenean sollicitudi bibendum auctor.</Text>
+                  <TouchableOpacity onPress={() => setActiveSection('createClient')} style={styles.readMoreBtn}>
+                    <Text style={styles.readMoreBtnText}>Crear</Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.cardTitle}>Crear Cliente</Text>
-                <Text style={styles.cardDescription}>Lorem ipsum dolor sit amet, consectne auctor aliquet. Aenean sollicitudi bibendum auctor.</Text>
-                <TouchableOpacity onPress={onCreateClient} style={styles.readMoreBtn}>
-                  <Text style={styles.readMoreBtnText}>Crear</Text>
-                </TouchableOpacity>
               </View>
-            </View>
 
-            <View style={styles.cardColumn}>
-              <View style={styles.cardDetails}>
-                <View style={styles.cardIcons}>
-                  <Image source={{ uri: 'https://imgpanda.com/upload/ib/YQdOwN6IDJ.png' }} style={styles.iconImage} />
-                </View>
-                <Text style={styles.cardTitle}>Crear Reservación</Text>
-                <Text style={styles.cardDescription}>Lorem ipsum dolor sit amet, consectne auctor aliquet. Aenean sollicitudi bibendum auctor.</Text>
-                <View>
-                  <Text style={styles.label}>Cliente</Text>
-                  <Picker
-                    selectedValue={selectedCliente}
-                    onValueChange={(itemValue) => setSelectedCliente(itemValue)}
-                    style={styles.picker}
-                  >
-                    {clientes.map(cliente => (
-                      <Picker.Item key={cliente.clienteID} label={cliente.nombre} value={cliente.clienteID} />
-                    ))}
-                  </Picker>
-
-                  <Text style={styles.label}>Carrito</Text>
-                  <Picker
-                    selectedValue={selectedCarrito}
-                    onValueChange={(itemValue) => setSelectedCarrito(itemValue)}
-                    style={styles.picker}
-                  >
-                    {carritos.map(carrito => (
-                      <Picker.Item key={carrito.carritoID} label={carrito.nombre} value={carrito.carritoID} />
-                    ))}
-                  </Picker>
-
-                  <Text style={styles.label}>Vendedor</Text>
-                  <Picker
-                    selectedValue={selectedVendedor}
-                    onValueChange={(itemValue) => setSelectedVendedor(itemValue)}
-                    style={styles.picker}
-                  >
-                    {vendedores.map(vendedor => (
-                      <Picker.Item key={vendedor.vendedorID} label={vendedor.nombre} value={vendedor.vendedorID} />
-                    ))}
-                  </Picker>
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Total de horas"
-                    value={total}
-                    onChangeText={setTotal}
-                  />
-
-                  <Text style={styles.label}>Estado</Text>
-                  <Picker
-                    selectedValue={status}
-                    onValueChange={(itemValue) => setStatus(itemValue)}
-                    style={styles.picker}
-                  >
-                    <Picker.Item label="En progreso" value="En progreso" />
-                    <Picker.Item label="Completado" value="Completado" />
-                    <Picker.Item label="Cancelado" value="Cancelado" />
-                    <Picker.Item label="Próxima renta" value="Próxima renta" />
-                  </Picker>
-
-                  <TouchableOpacity onPress={handleCreateReservation} style={styles.readMoreBtn}>
+              <View style={styles.cardColumn}>
+                <View style={styles.cardDetails}>
+                  <View style={styles.cardIcons}>
+                    <Image source={{ uri: 'https://imgpanda.com/upload/ib/YQdOwN6IDJ.png' }} style={styles.iconImage} />
+                  </View>
+                  <Text style={styles.cardTitle}>Crear Reservación</Text>
+                  <Text style={styles.cardDescription}>Lorem ipsum dolor sit amet, consectne auctor aliquet. Aenean sollicitudi bibendum auctor.</Text>
+                  <TouchableOpacity onPress={() => setActiveSection('createReservation')} style={styles.readMoreBtn}>
                     <Text style={styles.readMoreBtnText}>Crear</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
-          </View>
+          )}
+
+          {activeSection === 'createClient' && (
+            <View style={styles.formContainer}>
+              <Text style={styles.formTitle}>Crear Cliente</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nombre"
+                value={newClient.nombre}
+                onChangeText={(text) => setNewClient({ ...newClient, nombre: text })}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                value={newClient.email}
+                onChangeText={(text) => setNewClient({ ...newClient, email: text })}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Teléfono"
+                value={newClient.telefono}
+                onChangeText={(text) => setNewClient({ ...newClient, telefono: text })}
+              />
+              <TouchableOpacity onPress={handleCreateClient} style={styles.submitButton}>
+                <Text style={styles.submitButtonText}>Crear Cliente</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setActiveSection('reservations')} style={styles.backButton}>
+                <Text style={styles.backButtonText}>Regresar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {activeSection === 'createReservation' && (
+            <View style={styles.formContainer}>
+              <Text style={styles.formTitle}>Crear Reservación</Text>
+              <Text style={styles.label}>Cliente</Text>
+              <Picker
+                selectedValue={selectedCliente}
+                onValueChange={(itemValue) => setSelectedCliente(itemValue)}
+                style={styles.picker}
+              >
+                {clientes.map(cliente => (
+                  <Picker.Item key={cliente.clienteID} label={cliente.nombre} value={cliente.clienteID} />
+                ))}
+              </Picker>
+
+              <Text style={styles.label}>Carrito</Text>
+              <Picker
+                selectedValue={selectedCarrito}
+                onValueChange={(itemValue) => setSelectedCarrito(itemValue)}
+                style={styles.picker}
+              >
+                {carritos.map(carrito => (
+                  <Picker.Item key={carrito.carritoID} label={carrito.nombre} value={carrito.carritoID} />
+                ))}
+              </Picker>
+
+              <Text style={styles.label}>Vendedor</Text>
+              <Picker
+                selectedValue={selectedVendedor}
+                onValueChange={(itemValue) => setSelectedVendedor(itemValue)}
+                style={styles.picker}
+              >
+                {vendedores.map(vendedor => (
+                  <Picker.Item key={vendedor.vendedorID} label={vendedor.nombre} value={vendedor.vendedorID} />
+                ))}
+              </Picker>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Total de horas"
+                value={total}
+                onChangeText={setTotal}
+              />
+
+              <Text style={styles.label}>Estado</Text>
+              <Picker
+                selectedValue={status}
+                onValueChange={(itemValue) => setStatus(itemValue)}
+                style={styles.picker}
+              >
+                <Picker.Item label="En progreso" value="En progreso" />
+                <Picker.Item label="Completado" value="Completado" />
+                <Picker.Item label="Cancelado" value="Cancelado" />
+                <Picker.Item label="Próxima renta" value="Próxima renta" />
+              </Picker>
+
+              <TouchableOpacity onPress={handleCreateReservation} style={styles.submitButton}>
+                <Text style={styles.submitButtonText}>Crear Reservación</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setActiveSection('reservations')} style={styles.backButton}>
+                <Text style={styles.backButtonText}>Regresar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Text style={styles.closeButtonText}>Cerrar</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
+      <NotificationModal
+        visible={notificationVisible}
+        onClose={() => setNotificationVisible(false)}
+        type={notificationType}
+      />
     </Modal>
   );
 };
@@ -307,6 +385,35 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingHorizontal: 10,
     width: '100%',
+  },
+  formContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  formTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  submitButton: {
+    backgroundColor: '#4caf50',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 20,
+  },
+  submitButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  backButton: {
+    backgroundColor: '#f44336',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  backButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   closeButton: {
     backgroundColor: '#6c757d',

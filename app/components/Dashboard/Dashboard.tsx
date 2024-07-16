@@ -11,6 +11,22 @@ import { Renta } from '../../services/Renta/typesR';
 import ProgressCircle from '../ProgressCircle';
 import ComparisonCharts from '../ComparisonChart';
 import * as Network from 'expo-network';
+import axios from 'axios'; // Para las solicitudes HTTP
+
+interface WeatherData {
+    main: {
+        temp: number;
+    };
+    weather: {
+        description: string;
+    }[];
+}
+
+interface Event {
+    name: { text: string };
+    description: { text: string };
+    start: { local: string };
+}
 
 const DashboardScreen = () => {
     const { width: screenWidth } = useWindowDimensions();
@@ -20,6 +36,10 @@ const DashboardScreen = () => {
     const [carritos, setCarritos] = useState<{ [key: string]: Carrito }>({});
     const [clientes, setClientes] = useState<{ [key: string]: Cliente }>({});
     const [rentas, setRentas] = useState<Renta[]>([]);
+    const [weather, setWeather] = useState<WeatherData | null>(null);
+    const [time, setTime] = useState('');
+    const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+    const [events, setEvents] = useState<Event[]>([]);
     const [animValuesDisplay, setAnimValuesDisplay] = useState({
         totalCarritos: 0,
         freeCarritos: 0,
@@ -56,7 +76,6 @@ const DashboardScreen = () => {
             console.error('Error fetching carritos:', error.message || error);
         }
     };
-    
 
     const fetchClientes = async () => {
         try {
@@ -86,11 +105,69 @@ const DashboardScreen = () => {
         }
     };
 
+    const fetchWeather = async () => {
+        try {
+            const response = await axios.get('https://api.openweathermap.org/data/2.5/weather', {
+                params: {
+                    q: 'Cancun', // Reemplaza con tu ciudad
+                    appid: '0db9e08a7d9a5e36d96b384d84586084', // Reemplaza con tu API key de OpenWeatherMap
+                    units: 'metric'
+                }
+            });
+            setWeather(response.data);
+        } catch (error: any) {
+            console.error('Error fetching weather data:', error.message || error);
+        }
+    };
+
+    const fetchTime = () => {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString();
+        setTime(timeString);
+    };
+
+    const fetchExchangeRate = async () => {
+        try {
+            const response = await axios.get('https://open.er-api.com/v6/latest/USD');
+            if (response.data && response.data.rates && response.data.rates.MXN) {
+                setExchangeRate(response.data.rates.MXN);
+            } else {
+                console.error('Unexpected response format:', response);
+            }
+        } catch (error: any) {
+            console.error('Error fetching exchange rate:', error.message || error);
+        }
+    };
+
+    const fetchEvents = async (organizationId: string) => {
+        try {
+            const response = await axios.get(`https://www.eventbriteapi.com/v3/organizations/${organizationId}/events/`, {
+                headers: {
+                    Authorization: `UYTTP7YNGPWHOV3FMJBR`
+                }
+            });
+            if (response.data && response.data.events) {
+                setEvents(response.data.events);
+            } else {
+                console.error('Unexpected response format:', response);
+            }
+        } catch (error: any) {
+            console.error('Error fetching events:', error.message || error);
+        }
+    };
+
     useEffect(() => {
         checkNetwork();
         fetchCarritos();
         fetchClientes();
         fetchRentas();
+        fetchWeather();
+        fetchTime();
+        fetchExchangeRate();
+        fetchEvents('948474902967'); // Reemplaza con el ID de tu organización
+
+        const timeInterval = setInterval(fetchTime, 1000); // Actualizar la hora cada segundo
+        return () => clearInterval(timeInterval);
     }, []);
 
     useEffect(() => {
@@ -255,6 +332,62 @@ const DashboardScreen = () => {
                             <Text style={styles.cardSubText}>Clientes registrados recientemente</Text>
                         </Card.Content>
                     </Card>
+                    <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card5]}>
+                        <Card.Content>
+                            <View style={styles.iconContainer}>
+                                <MaterialCommunityIcons name="weather-cloudy" size={30} color="#3498db" />
+                            </View>
+                            <Title style={styles.cardTitle}>Tiempo</Title>
+                            {weather ? (
+                                <>
+                                    <Paragraph style={styles.cardText}>{weather.main.temp}°C</Paragraph>
+                                    <Text style={styles.cardSubText}>{weather.weather[0].description}</Text>
+                                </>
+                            ) : (
+                                <Text style={styles.cardSubText}>Cargando...</Text>
+                            )}
+                        </Card.Content>
+                    </Card>
+                    <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card6]}>
+                        <Card.Content>
+                            <View style={styles.iconContainer}>
+                                <MaterialCommunityIcons name="clock-outline" size={30} color="#3498db" />
+                            </View>
+                            <Title style={styles.cardTitle}>Hora</Title>
+                            <Paragraph style={styles.cardText}>{time}</Paragraph>
+                        </Card.Content>
+                    </Card>
+                    <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card7]}>
+                        <Card.Content>
+                            <View style={styles.iconContainer}>
+                                <MaterialCommunityIcons name="currency-usd" size={30} color="#3498db" />
+                            </View>
+                            <Title style={styles.cardTitle}>Cambio</Title>
+                            {exchangeRate !== null ? (
+                                <Paragraph style={styles.cardText}>1 USD = {exchangeRate} MXN</Paragraph>
+                            ) : (
+                                <Text style={styles.cardSubText}>Cargando...</Text>
+                            )}
+                        </Card.Content>
+                    </Card>
+                    <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card8]}>
+                        <Card.Content>
+                            <View style={styles.iconContainer}>
+                                <MaterialCommunityIcons name="calendar" size={30} color="#3498db" />
+                            </View>
+                            <Title style={styles.cardTitle}>Eventos</Title>
+                            {events.length > 0 ? (
+                                events.map((event) => (
+                                    <View key={event.name.text} style={{ marginBottom: 10 }}>
+                                        <Paragraph style={styles.cardText}>{event.name.text}</Paragraph>
+                                        <Text style={styles.cardSubText}>{new Date(event.start.local).toLocaleString()}</Text>
+                                    </View>
+                                ))
+                            ) : (
+                                <Text style={styles.cardSubText}>Cargando...</Text>
+                            )}
+                        </Card.Content>
+                    </Card>
                 </View>
 
                 <View style={styles.summaryContainer}>
@@ -361,6 +494,18 @@ const styles = StyleSheet.create({
     },
     card4: {
         backgroundColor: '#FFF3E0',
+    },
+    card5: {
+        backgroundColor: '#E3F2FD',
+    },
+    card6: {
+        backgroundColor: '#E3F2FD',
+    },
+    card7: {
+        backgroundColor: '#E3F2FD',
+    },
+    card8: {
+        backgroundColor: '#E3F2FD',
     },
     cardTitle: {
         fontSize: 16,
