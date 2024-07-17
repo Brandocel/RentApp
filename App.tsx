@@ -30,7 +30,6 @@ function DrawerNavigator() {
       <Drawer.Screen name="Dashboard" component={Dashboard} />
       <Drawer.Screen name="Calendar" component={CalendarScreen} />
       <Drawer.Screen name="CartRent" component={CarScreen} />
-      <Drawer.Screen name="DetallesCarrito" component={DetallesCarrito} />
       <Drawer.Screen name="Cerrar sesion" component={Login} />
     </Drawer.Navigator>
   );
