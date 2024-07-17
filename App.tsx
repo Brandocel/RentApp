@@ -9,7 +9,6 @@ import CarScreen from './app/components/Rent-Car/CarScreen';
 import DetallesCarrito from './app/components/Rent-Car/DetallesCarrito';
 import Login from './app/components/login/login';
 import { PaperProvider } from 'react-native-paper';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProtectedRoute from './app/services/guards/ProtectedRoute';
 import { Carrito } from './app/components/Rent-Car/Car-interface';
 
@@ -20,8 +19,10 @@ const Stack = createStackNavigator();
 export type RootStackParamList = {
   CarScreen: undefined;
   DetallesCarrito: { carrito: Carrito };
+  Dashboard: undefined;
+  CalendarScreen: undefined;
+  Login: undefined;
 };
-
 
 function DrawerNavigator() {
   return (
@@ -29,7 +30,7 @@ function DrawerNavigator() {
       <Drawer.Screen name="Dashboard" component={Dashboard} />
       <Drawer.Screen name="Calendar" component={CalendarScreen} />
       <Drawer.Screen name="CartRent" component={CarScreen} />
-      <Drawer.Screen name="Detalles" component={DetallesCarrito} />
+      <Drawer.Screen name="DetallesCarrito" component={DetallesCarrito} />
       <Drawer.Screen name="Cerrar sesion" component={Login} />
     </Drawer.Navigator>
   );
@@ -43,6 +44,7 @@ function App() {
           <Stack.Screen name="ProtectedRoute" component={ProtectedRoute} options={{ headerShown: false }} />
           <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
           <Stack.Screen name="App" component={DrawerNavigator} options={{ headerShown: false }} />
+          <Stack.Screen name="DetallesCarrito" component={DetallesCarrito} options={{ title: 'Detalles del Carrito' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </PaperProvider>
