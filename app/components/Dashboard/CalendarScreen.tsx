@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#f3f4f6', //
   },
   header: {
     flexDirection: 'row',
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   yearText: {
     fontSize: 20,
     fontWeight: 'normal',
-    color: '#4b5563',
+    color: '#4b5563', 
     marginLeft: 4,
   },
   navigation: {
@@ -287,12 +287,12 @@ const styles = StyleSheet.create({
   },
   navButton: {
     padding: 8,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: '#e2e8f0', 
     borderRadius: 8,
   },
   navButtonText: {
     fontSize: 18,
-    color: '#6b7280',
+    color: '#6b7280', 
   },
   daysContainer: {
     flexDirection: 'row',
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   dayText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#4b5563',
+    color: '#4b5563', 
   },
   datesContainer: {
     flex: 1,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   dateItem: {
     width: '14.28%',
     height: 100,
-    borderColor: '#e5e7eb',
+    borderColor: '#e5e7eb', 
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: '#1f2937', 
   },
   eventScroll: {
     maxHeight: 60,
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   },
   eventText: {
     fontSize: 12,
-    color: '#1f2937',
+    color: '#1f2937', 
   },
 });
 
