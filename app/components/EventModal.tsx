@@ -1,48 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Image, ScrollView, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, TextInput } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import RentaService from '../services/Renta/RentaService';
 import ClienteService from '../services/Cliente/ClienteService';
 import GolfService from '../services/GolfService';
 import VendedorService from '../services/Vendedor/VendedorService';
 import { Carrito } from '../services/CardRent/Car-interface';
-import NotificationModal from './NotificationModal'; // Importa el modal de notificaciones
+import NotificationModal from './NotificationModal';
 
 interface Props {
   carritos: Carrito[];
   visible: boolean;
-  onCreateClient : () => void;
   onClose: () => void;
-  onViewReservations: () => void;
   selectedDate: number | null;
 }
 
-const EventModal: React.FC<Props> = ({ visible, onClose, onViewReservations, selectedDate }) => {
+const EventModal: React.FC<Props> = ({ visible, onClose, selectedDate }) => {
   const [clientes, setClientes] = useState<{ clienteID: string; nombre: string; }[]>([]);
   const [carritos, setCarritos] = useState<{ carritoID: string; nombre: string; }[]>([]);
   const [vendedores, setVendedores] = useState<{ vendedorID: string; nombre: string; }[]>([]);
   const [selectedCliente, setSelectedCliente] = useState('');
   const [selectedCarrito, setSelectedCarrito] = useState('');
   const [selectedVendedor, setSelectedVendedor] = useState('');
-  const [horaInicio, setHoraInicio] = useState('');
-  const [horaFinal, setHoraFinal] = useState('');
   const [total, setTotal] = useState('');
   const [status, setStatus] = useState('En progreso');
-  const [activeSection, setActiveSection] = useState<'reservations' | 'createClient' | 'createReservation'>('reservations');
-  const [newClient, setNewClient] = useState({ nombre: '', email: '', telefono: '' });
   const [notificationVisible, setNotificationVisible] = useState(false);
   const [notificationType, setNotificationType] = useState<'help' | 'success' | 'warning' | 'error'>('success');
-  
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [activeSection, setActiveSection] = useState<'reservations' | 'createClient' | 'createReservation'>('reservations');
+  const [newClient, setNewClient] = useState({ nombre: '', email: '', telefono: '' });
+  const [reservations, setReservations] = useState<any[]>([]);
+
   useEffect(() => {
     fetchData();
   }, []);
 
   useEffect(() => {
-    if (selectedDate) {
-      const today = new Date();
-      const month = today.getMonth();
-      const selectedDay = new Date(new Date().getFullYear(), month, selectedDate);
-      setHoraInicio(new Date(selectedDay.setHours(today.getHours(), today.getMinutes(), today.getSeconds())).toISOString());
+    if (selectedDate !== null) {
+      fetchReservationsForDate(selectedDate);
     }
   }, [selectedDate]);
 
@@ -86,44 +81,69 @@ const EventModal: React.FC<Props> = ({ visible, onClose, onViewReservations, sel
     }
   };
 
+  const fetchReservationsForDate = async (date: number) => {
+    try {
+      const fetchedReservations = await RentaService.obtenerRentas();
+      const filteredReservations = fetchedReservations.filter(reservation => {
+        const reservationDate = new Date(reservation.horaInicio);
+        return (
+          reservationDate.getDate() === date &&
+          reservationDate.getMonth() === new Date().getMonth() &&
+          reservationDate.getFullYear() === new Date().getFullYear()
+        );
+      });
+      setReservations(filteredReservations);
+    } catch (error) {
+      console.error('Error fetching reservations:', error);
+    }
+  };
+
   const handleCreateReservation = async () => {
     if (!selectedCliente || !selectedCarrito || !selectedVendedor || !total) {
-      alert('Por favor seleccione todos los campos.');
+      setNotificationType('error');
+      setNotificationMessage('Por favor seleccione todos los campos.');
+      setNotificationVisible(true);
       return;
     }
 
     const parsedTotal = parseFloat(total);
     if (isNaN(parsedTotal)) {
-      alert('El total debe ser un número válido.');
+      setNotificationType('error');
+      setNotificationMessage('El total debe ser un número válido.');
+      setNotificationVisible(true);
       return;
     }
 
-    const finalTime = new Date(new Date(horaInicio).getTime() + parsedTotal * 60 * 60 * 1000 + 15 * 60 * 1000).toISOString();
+    const startTime = new Date();
+    const endTime = new Date(startTime.getTime() + parsedTotal * 60 * 60 * 1000);
 
     const newReservation = {
       clienteFK: parseInt(selectedCliente),
       carritoFK: parseInt(selectedCarrito),
       vendedorFK: parseInt(selectedVendedor),
       status,
-      horaInicio,
-      horaFinal: finalTime,
+      horaInicio: startTime.toISOString(),
+      horaFinal: endTime.toISOString(),
       total: parsedTotal
     };
-    console.log('Datos enviados:', newReservation);
+
     const result = await RentaService.agregarRenta(newReservation);
     if (result) {
       setNotificationType('success');
+      setNotificationMessage('Renta creada exitosamente.');
       setNotificationVisible(true);
-      onClose();
     } else {
       setNotificationType('error');
+      setNotificationMessage('Error al crear la renta.');
       setNotificationVisible(true);
     }
   };
 
   const handleCreateClient = async () => {
     if (!newClient.nombre || !newClient.email || !newClient.telefono) {
-      alert('Por favor complete todos los campos.');
+      setNotificationType('error');
+      setNotificationMessage('Por favor complete todos los campos.');
+      setNotificationVisible(true);
       return;
     }
 
@@ -131,82 +151,99 @@ const EventModal: React.FC<Props> = ({ visible, onClose, onViewReservations, sel
       const result = await ClienteService.crearCliente(newClient);
       if (result.succeeded) {
         setNotificationType('success');
+        setNotificationMessage('Cliente creado exitosamente.');
         setNotificationVisible(true);
         fetchData();
         setActiveSection('reservations');
       } else {
         setNotificationType('error');
+        setNotificationMessage('Error al crear el cliente.');
         setNotificationVisible(true);
       }
     } catch (error) {
       console.error('Error creating client:', error);
-      setNotificationType('success');
+      setNotificationType('error');
+      setNotificationMessage('Error al crear el cliente.');
       setNotificationVisible(true);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    if (!status || status.trim() === "") {
+      return '#808080'; // Gris
+    }
+    switch (status.trim()) {
+      case 'En progreso':
+        return '#FFD700'; // Amarillo
+      case 'Completado':
+        return '#4CAF50'; // Verde
+      case 'Cancelado':
+        return '#FF0000'; // Rojo
+      case 'Próxima renta':
+        return '#00BFFF'; // Azul
+      default:
+        return '#808080'; // Gris para cualquier otro valor no esperado
     }
   };
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
       <View style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Opciones</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Text style={styles.closeButtonText}>X</Text>
+          </TouchableOpacity>
+        </View>
         <ScrollView contentContainerStyle={styles.modalContent}>
           {activeSection === 'reservations' && (
             <View style={styles.cardsContainer}>
-              <View style={styles.cardColumn}>
-                <View style={styles.cardDetails}>
-                  <View style={styles.cardIcons}>
-                    <Image source={{ uri: 'https://imgpanda.com/upload/ib/1yIWjyG41o.png' }} style={styles.iconImage} />
-                  </View>
-                  <Text style={styles.cardTitle}>Ver Reservaciones</Text>
-                  <Text style={styles.cardDescription}>Lorem ipsum dolor sit amet, consectne auctor aliquet. Aenean sollicitudi bibendum auctor.</Text>
-                  <TouchableOpacity onPress={onViewReservations} style={styles.readMoreBtn}>
-                    <Text style={styles.readMoreBtnText}>Ver</Text>
-                  </TouchableOpacity>
+              <TouchableOpacity style={styles.card} onPress={() => setActiveSection('reservations')}>
+                <View style={[styles.iconContainer, styles.bgPrimary]}>
+                  <CalendarIcon style={styles.icon} />
                 </View>
-              </View>
+                <Text style={styles.cardTitle}>Ver reservaciones</Text>
+                <Text style={styles.cardDescription}>Revisa todas las reservaciones realizadas por tus clientes.</Text>
+                <Text style={styles.cardButton}>Ver reservaciones</Text>
+              </TouchableOpacity>
 
-              <View style={styles.cardColumn}>
-                <View style={styles.cardDetails}>
-                  <View style={styles.cardIcons}>
-                    <Image source={{ uri: 'https://imgpanda.com/upload/ib/Q4tSh2ctkH.png' }} style={styles.iconImage} />
-                  </View>
-                  <Text style={styles.cardTitle}>Crear Cliente</Text>
-                  <Text style={styles.cardDescription}>Lorem ipsum dolor sit amet, consectne auctor aliquet. Aenean sollicitudi bibendum auctor.</Text>
-                  <TouchableOpacity onPress={() => setActiveSection('createClient')} style={styles.readMoreBtn}>
-                    <Text style={styles.readMoreBtnText}>Crear</Text>
-                  </TouchableOpacity>
+              <TouchableOpacity style={styles.card} onPress={() => setActiveSection('createClient')}>
+                <View style={[styles.iconContainer, styles.bgSecondary]}>
+                  <UserIcon style={styles.icon} />
                 </View>
-              </View>
+                <Text style={styles.cardTitle}>Crear cliente</Text>
+                <Text style={styles.cardDescription}>Agrega nuevos clientes a tu sistema de reservaciones.</Text>
+                <Text style={styles.cardButton}>Crear cliente</Text>
+              </TouchableOpacity>
 
-              <View style={styles.cardColumn}>
-                <View style={styles.cardDetails}>
-                  <View style={styles.cardIcons}>
-                    <Image source={{ uri: 'https://imgpanda.com/upload/ib/YQdOwN6IDJ.png' }} style={styles.iconImage} />
-                  </View>
-                  <Text style={styles.cardTitle}>Crear Reservación</Text>
-                  <Text style={styles.cardDescription}>Lorem ipsum dolor sit amet, consectne auctor aliquet. Aenean sollicitudi bibendum auctor.</Text>
-                  <TouchableOpacity onPress={() => setActiveSection('createReservation')} style={styles.readMoreBtn}>
-                    <Text style={styles.readMoreBtnText}>Crear</Text>
-                  </TouchableOpacity>
+              <TouchableOpacity style={styles.card} onPress={() => setActiveSection('createReservation')}>
+                <View style={[styles.iconContainer, styles.bgAccent]}>
+                  <ClipboardIcon style={styles.icon} />
                 </View>
-              </View>
+                <Text style={styles.cardTitle}>Crear renta</Text>
+                <Text style={styles.cardDescription}>Registra nuevas rentas para tus clientes.</Text>
+                <Text style={styles.cardButton}>Crear renta</Text>
+              </TouchableOpacity>
             </View>
           )}
 
           {activeSection === 'createClient' && (
             <View style={styles.formContainer}>
-              <Text style={styles.formTitle}>Crear Cliente</Text>
+              <Text style={styles.label}>Nombre</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Nombre"
                 value={newClient.nombre}
-                onChangeText={(text) => setNewClient({ ...newClient, nombre: text })}
+                onChangeText={(text: any) => setNewClient({ ...newClient, nombre: text })}
               />
+              <Text style={styles.label}>Email</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Email"
                 value={newClient.email}
                 onChangeText={(text) => setNewClient({ ...newClient, email: text })}
               />
+              <Text style={styles.label}>Teléfono</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Teléfono"
@@ -224,80 +261,166 @@ const EventModal: React.FC<Props> = ({ visible, onClose, onViewReservations, sel
 
           {activeSection === 'createReservation' && (
             <View style={styles.formContainer}>
-              <Text style={styles.formTitle}>Crear Reservación</Text>
-              <Text style={styles.label}>Cliente</Text>
-              <Picker
-                selectedValue={selectedCliente}
-                onValueChange={(itemValue) => setSelectedCliente(itemValue)}
-                style={styles.picker}
-              >
-                {clientes.map(cliente => (
-                  <Picker.Item key={cliente.clienteID} label={cliente.nombre} value={cliente.clienteID} />
-                ))}
-              </Picker>
-
-              <Text style={styles.label}>Carrito</Text>
-              <Picker
-                selectedValue={selectedCarrito}
-                onValueChange={(itemValue) => setSelectedCarrito(itemValue)}
-                style={styles.picker}
-              >
-                {carritos.map(carrito => (
-                  <Picker.Item key={carrito.carritoID} label={carrito.nombre} value={carrito.carritoID} />
-                ))}
-              </Picker>
-
-              <Text style={styles.label}>Vendedor</Text>
-              <Picker
-                selectedValue={selectedVendedor}
-                onValueChange={(itemValue) => setSelectedVendedor(itemValue)}
-                style={styles.picker}
-              >
-                {vendedores.map(vendedor => (
-                  <Picker.Item key={vendedor.vendedorID} label={vendedor.nombre} value={vendedor.vendedorID} />
-                ))}
-              </Picker>
-
-              <TextInput
-                style={styles.input}
-                placeholder="Total de horas"
-                value={total}
-                onChangeText={setTotal}
-              />
-
-              <Text style={styles.label}>Estado</Text>
-              <Picker
-                selectedValue={status}
-                onValueChange={(itemValue) => setStatus(itemValue)}
-                style={styles.picker}
-              >
-                <Picker.Item label="En progreso" value="En progreso" />
-                <Picker.Item label="Completado" value="Completado" />
-                <Picker.Item label="Cancelado" value="Cancelado" />
-                <Picker.Item label="Próxima renta" value="Próxima renta" />
-              </Picker>
-
-              <TouchableOpacity onPress={handleCreateReservation} style={styles.submitButton}>
-                <Text style={styles.submitButtonText}>Crear Reservación</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setActiveSection('reservations')} style={styles.backButton}>
-                <Text style={styles.backButtonText}>Regresar</Text>
-              </TouchableOpacity>
+              <Text style={styles.description}>Fill out the details for your rental.</Text>
+              <View style={styles.formRow}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Client</Text>
+                  <Picker
+                    selectedValue={selectedCliente}
+                    onValueChange={(itemValue) => setSelectedCliente(itemValue)}
+                    style={styles.picker}
+                  >
+                    {clientes.map(cliente => (
+                      <Picker.Item key={cliente.clienteID} label={cliente.nombre} value={cliente.clienteID} />
+                    ))}
+                  </Picker>
+                </View>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Cart</Text>
+                  <Picker
+                    selectedValue={selectedCarrito}
+                    onValueChange={(itemValue) => setSelectedCarrito(itemValue)}
+                    style={styles.picker}
+                  >
+                    {carritos.map(carrito => (
+                      <Picker.Item key={carrito.carritoID} label={carrito.nombre} value={carrito.carritoID} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+              <View style={styles.formRow}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Seller</Text>
+                  <Picker
+                    selectedValue={selectedVendedor}
+                    onValueChange={(itemValue) => setSelectedVendedor(itemValue)}
+                    style={styles.picker}
+                  >
+                    {vendedores.map(vendedor => (
+                      <Picker.Item key={vendedor.vendedorID} label={vendedor.nombre} value={vendedor.vendedorID} />
+                    ))}
+                  </Picker>
+                </View>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Total Hours</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter total hours"
+                    value={total}
+                    onChangeText={setTotal}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Status</Text>
+                <Picker
+                  selectedValue={status}
+                  onValueChange={(itemValue) => setStatus(itemValue)}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="En progreso" value="En progreso" />
+                  <Picker.Item label="Completado" value="Completado" />
+                  <Picker.Item label="Cancelado" value="Cancelado" />
+                  <Picker.Item label="Próxima renta" value="Próxima renta" />
+                </Picker>
+              </View>
+              <View style={styles.buttonRow}>
+                <TouchableOpacity onPress={() => setActiveSection('reservations')} style={[styles.button, styles.cancelButton]}>
+                  <Text style={styles.buttonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleCreateReservation} style={[styles.button, styles.submitButton]}>
+                  <Text style={styles.buttonText}>Submit</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>Cerrar</Text>
-          </TouchableOpacity>
+
+          {activeSection === 'reservations' && (
+            <View style={styles.reservationsContainer}>
+              {reservations.length > 0 ? (
+                reservations.map((reservation) => (
+                  <View key={reservation.rentaID} style={[styles.reservationCard, { borderLeftColor: getStatusColor(reservation.status), borderLeftWidth: 5 }]}>
+                    <Text style={styles.reservationTitle}>{reservation.cliente?.nombre}</Text>
+                    <Text style={styles.reservationDetail}>Carrito: {reservation.carrito?.nombre}</Text>
+                    <Text style={styles.reservationDetail}>Vendedor: {reservation.vendedor?.nombre}</Text>
+                    <Text style={styles.reservationDetail}>Inicio: {reservation.horaInicio}</Text>
+                    <Text style={styles.reservationDetail}>Fin: {reservation.horaFinal}</Text>
+                    <Text style={styles.reservationDetail}>Estado: {reservation.status ? reservation.status.trim() : 'Sin estado'}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noReservationsText}>No hay reservaciones disponibles para este día.</Text>
+              )}
+            </View>
+          )}
         </ScrollView>
+        <NotificationModal
+          visible={notificationVisible}
+          onClose={() => setNotificationVisible(false)}
+          type={notificationType}
+          message={notificationMessage}
+        />
       </View>
-      <NotificationModal
-        visible={notificationVisible}
-        onClose={() => setNotificationVisible(false)}
-        type={notificationType}
-      />
     </Modal>
   );
 };
+
+const CalendarIcon = (props: React.JSX.IntrinsicAttributes & React.SVGProps<SVGSVGElement>) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M8 2v4" />
+    <path d="M16 2v4" />
+    <rect width="18" height="18" x="3" y="4" rx="2" />
+    <path d="M3 10h18" />
+  </svg>
+);
+
+const ClipboardIcon = (props: React.JSX.IntrinsicAttributes & React.SVGProps<SVGSVGElement>) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+  </svg>
+);
+
+const UserIcon = (props: React.JSX.IntrinsicAttributes & React.SVGProps<SVGSVGElement>) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
 
 const styles = StyleSheet.create({
   modalContainer: {
@@ -306,123 +429,192 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    width: '100%',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+    backgroundColor: '#fff',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    padding: 10,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  modalContent: {
+    width: '100%',
+    padding: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+  },
+  description: {
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   cardsContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardColumn: {
-    width: 300,
-    marginHorizontal: 10,
-    alignItems: 'center',
-  },
-  cardDetails: {
-    width: '100%',
-    padding: 20,
-    backgroundColor: '#f7f6f2',
-    borderRadius: 10,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  cardIcons: {
-    width: 140,
-    height: 150,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#ffee02',
-    backgroundColor: '#fff',
   },
-  iconImage: {
-    width: 70,
-    height: 70,
+  card: {
+    flex: 1,
+    margin: 10,
+    padding: 20,
+    borderRadius: 10,
+    backgroundColor: '#f9f9f9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  iconContainer: {
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bgPrimary: {
+    backgroundColor: '#2196f3',
+  },
+  bgSecondary: {
+    backgroundColor: '#e91e63',
+  },
+  bgAccent: {
+    backgroundColor: '#97dc47',
+  },
+  icon: {
+    width: 24,
+    height: 24,
+    color: '#fff',
   },
   cardTitle: {
-    marginBottom: 15,
-    marginTop: 50,
-    fontWeight: '700',
-    fontSize: 24,
-    lineHeight: 1.2,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
   },
   cardDescription: {
+    fontSize: 14,
+    marginBottom: 20,
+    color: '#666',
+  },
+  cardButton: {
+    fontSize: 14,
+    color: '#2196f3',
+    fontWeight: 'bold',
+  },
+  reservationsContainer: {
+    marginTop: 20,
+  },
+  reservationCard: {
+    padding: 20,
+    borderRadius: 10,
+    backgroundColor: '#f9f9f9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    marginBottom: 10,
+    borderLeftWidth: 5,
+  },
+  reservationTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  reservationDetail: {
+    fontSize: 14,
+    marginBottom: 5,
+    color: '#666',
+  },
+  noReservationsText: {
     fontSize: 16,
-    color: '#444',
+    color: '#666',
     textAlign: 'center',
+    marginTop: 20,
+  },
+  formContainer: {
     marginBottom: 20,
   },
-  readMoreBtn: {
-    backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 25,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: '#ffee02',
+  formRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  readMoreBtnText: {
-    color: '#000',
-    fontWeight: 'bold',
+  inputContainer: {
+    flex: 1,
+    marginHorizontal: 5,
   },
   label: {
     fontSize: 16,
-    marginVertical: 10,
+    marginBottom: 5,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 10,
+    backgroundColor: '#fff',
   },
   picker: {
     height: 50,
-    width: '100%',
-    marginBottom: 10,
-  },
-  input: {
-    height: 40,
-    borderColor: '#ccc',
     borderWidth: 1,
-    marginBottom: 10,
-    paddingHorizontal: 10,
-    width: '100%',
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 10,
+    backgroundColor: '#fff',
   },
-  formContainer: {
-    width: '100%',
-    alignItems: 'center',
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
   },
-  formTitle: {
-    fontSize: 24,
+  button: {
+    padding: 10,
+    borderRadius: 5,
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: '#f44336',
+  },
+  submitButton: {
+    backgroundColor: '#4caf50',
+  },
+  buttonText: {
+    color: '#fff',
     fontWeight: 'bold',
-    marginBottom: 20,
+    textAlign: 'center',
   },
   submitButton: {
     backgroundColor: '#4caf50',
     padding: 10,
     borderRadius: 5,
-    marginTop: 20,
+    alignItems: 'center',
   },
   submitButtonText: {
-    color: 'white',
+    color: '#fff',
     fontWeight: 'bold',
   },
   backButton: {
     backgroundColor: '#f44336',
     padding: 10,
     borderRadius: 5,
+    alignItems: 'center',
     marginTop: 10,
   },
   backButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    backgroundColor: '#6c757d',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 20,
-  },
-  closeButtonText: {
-    color: 'white',
+    color: '#fff',
     fontWeight: 'bold',
   },
 });

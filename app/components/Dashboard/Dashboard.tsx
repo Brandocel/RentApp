@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, useWindowDimensions, Animated } from 'react-native';
-import { Card, Paragraph, Title, DataTable } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ScrollView, View, Text, StyleSheet, useWindowDimensions, Animated, Image } from 'react-native';
+import { Card, Paragraph, Title, DataTable, IconButton } from 'react-native-paper';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import GolfService from '../../services/GolfService';
 import ClienteService from '../../services/Cliente/ClienteService';
 import RentaService from '../../services/Renta/RentaService';
@@ -47,6 +47,8 @@ const DashboardScreen = () => {
         nuevosClientes: 0,
     });
     const [remainingTimes, setRemainingTimes] = useState<{ [key: string]: string }>({});
+    const [page, setPage] = useState(0);
+    const itemsPerPage = 10;
 
     const animValues = {
         totalCarritos: new Animated.Value(0),
@@ -269,8 +271,16 @@ const DashboardScreen = () => {
         }
     };
 
-    const getOverallProgress = () => {
-        return 72; // Este es un ejemplo, debes calcularlo en función de tus datos
+    const handleUpdate = (rentaId: number) => {
+        // Lógica para actualizar la renta
+    };
+
+    const handleDelete = (rentaId: number) => {
+        // Lógica para eliminar la renta
+    };
+
+    const handleViewReservation = (rentaId: number) => {
+        // Lógica para ver la reservación
     };
 
     const popularCarritosData = rentas.reduce((acc: any, renta: Renta) => {
@@ -291,7 +301,7 @@ const DashboardScreen = () => {
                     <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card1]}>
                         <Card.Content>
                             <View style={styles.iconContainer}>
-                                <MaterialCommunityIcons name="car" size={30} color="#3498db" />
+                                <Image source={require('../../../assets/carrito.png')} style={styles.image} />
                             </View>
                             <Title style={styles.cardTitle}>Total Carritos</Title>
                             <ProgressCircle percentage={animValuesDisplay.totalCarritos} color="#3498db" />
@@ -302,7 +312,7 @@ const DashboardScreen = () => {
                     <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card2]}>
                         <Card.Content>
                             <View style={styles.iconContainer}>
-                                <MaterialCommunityIcons name="car-outline" size={30} color="#e74c3c" />
+                                <Image source={require('../../../assets/carrito.png')} style={styles.image} />
                             </View>
                             <Title style={styles.cardTitle}>Free Carritos</Title>
                             <ProgressCircle percentage={animValuesDisplay.freeCarritos} color="#e74c3c" />
@@ -313,7 +323,7 @@ const DashboardScreen = () => {
                     <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card3]}>
                         <Card.Content>
                             <View style={styles.iconContainer}>
-                                <MaterialCommunityIcons name="car-electric" size={30} color="#2ecc71" />
+                                <Image source={require('../../../assets/carrito.png')} style={styles.image} />
                             </View>
                             <Title style={styles.cardTitle}>Occupied Carritos</Title>
                             <ProgressCircle percentage={animValuesDisplay.occupiedCarritos} color="#2ecc71" />
@@ -324,7 +334,7 @@ const DashboardScreen = () => {
                     <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card4]}>
                         <Card.Content>
                             <View style={styles.iconContainer}>
-                                <MaterialCommunityIcons name="account" size={30} color="#f39c12" />
+                                <Image source={require('../../../assets/carrito.png')} style={styles.image} />
                             </View>
                             <Title style={styles.cardTitle}>Nuevos Clientes</Title>
                             <ProgressCircle percentage={animValuesDisplay.nuevosClientes} color="#f39c12" />
@@ -332,62 +342,11 @@ const DashboardScreen = () => {
                             <Text style={styles.cardSubText}>Clientes registrados recientemente</Text>
                         </Card.Content>
                     </Card>
-                    <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card5]}>
-                        <Card.Content>
-                            <View style={styles.iconContainer}>
-                                <MaterialCommunityIcons name="weather-cloudy" size={30} color="#3498db" />
-                            </View>
-                            <Title style={styles.cardTitle}>Tiempo</Title>
-                            {weather ? (
-                                <>
-                                    <Paragraph style={styles.cardText}>{weather.main.temp}°C</Paragraph>
-                                    <Text style={styles.cardSubText}>{weather.weather[0].description}</Text>
-                                </>
-                            ) : (
-                                <Text style={styles.cardSubText}>Cargando...</Text>
-                            )}
-                        </Card.Content>
-                    </Card>
-                    <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card6]}>
-                        <Card.Content>
-                            <View style={styles.iconContainer}>
-                                <MaterialCommunityIcons name="clock-outline" size={30} color="#3498db" />
-                            </View>
-                            <Title style={styles.cardTitle}>Hora</Title>
-                            <Paragraph style={styles.cardText}>{time}</Paragraph>
-                        </Card.Content>
-                    </Card>
-                    <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card7]}>
-                        <Card.Content>
-                            <View style={styles.iconContainer}>
-                                <MaterialCommunityIcons name="currency-usd" size={30} color="#3498db" />
-                            </View>
-                            <Title style={styles.cardTitle}>Cambio</Title>
-                            {exchangeRate !== null ? (
-                                <Paragraph style={styles.cardText}>1 USD = {exchangeRate} MXN</Paragraph>
-                            ) : (
-                                <Text style={styles.cardSubText}>Cargando...</Text>
-                            )}
-                        </Card.Content>
-                    </Card>
-                    <Card style={[styles.card, isLargeScreen ? styles.cardLarge : styles.cardSmall, styles.card8]}>
-                        <Card.Content>
-                            <View style={styles.iconContainer}>
-                                <MaterialCommunityIcons name="calendar" size={30} color="#3498db" />
-                            </View>
-                            <Title style={styles.cardTitle}>Eventos</Title>
-                            {events.length > 0 ? (
-                                events.map((event) => (
-                                    <View key={event.name.text} style={{ marginBottom: 10 }}>
-                                        <Paragraph style={styles.cardText}>{event.name.text}</Paragraph>
-                                        <Text style={styles.cardSubText}>{new Date(event.start.local).toLocaleString()}</Text>
-                                    </View>
-                                ))
-                            ) : (
-                                <Text style={styles.cardSubText}>Cargando...</Text>
-                            )}
-                        </Card.Content>
-                    </Card>
+                </View>
+                
+                <View style={styles.chartsContainer}>
+                    <ComparisonCharts />
+                    <ComparisonCharts />
                 </View>
 
                 <View style={styles.summaryContainer}>
@@ -397,13 +356,14 @@ const DashboardScreen = () => {
                             <DataTable.Header style={styles.dataTableHeader}>
                                 <DataTable.Title>Cliente</DataTable.Title>
                                 <DataTable.Title>Vendedor</DataTable.Title>
-                                <DataTable.Title>Carrito</DataTable.Title>
+                                <DataTable.Title>Carrito de Golf</DataTable.Title>
                                 <DataTable.Title>Inicio</DataTable.Title>
                                 <DataTable.Title>Final</DataTable.Title>
                                 <DataTable.Title>Status</DataTable.Title>
                                 {isLargeScreen && <DataTable.Title>Progreso</DataTable.Title>}
+                        
                             </DataTable.Header>
-                            {rentas.map((renta) => (
+                            {rentas.slice(page * itemsPerPage, (page + 1) * itemsPerPage).map((renta) => (
                                 <DataTable.Row key={renta.rentaID} style={styles.dataTableRow}>
                                     <DataTable.Cell>{clientes[renta.clienteFK]?.nombre || renta.clienteFK}</DataTable.Cell>
                                     <DataTable.Cell>{renta.vendedorFK}</DataTable.Cell>
@@ -414,12 +374,13 @@ const DashboardScreen = () => {
                                     {isLargeScreen && <DataTable.Cell>{remainingTimes[renta.rentaID.toString()]}</DataTable.Cell>}
                                 </DataTable.Row>
                             ))}
+                            <DataTable.Pagination
+                                page={page}
+                                numberOfPages={Math.ceil(rentas.length / itemsPerPage)}
+                                onPageChange={page => setPage(page)}
+                                label={`Page ${page + 1} of ${Math.ceil(rentas.length / itemsPerPage)}`}
+                            />
                         </DataTable>
-                    </View>
-
-                    <View style={[styles.graphContainer, isLargeScreen ? styles.graphContainerLarge : styles.graphContainerSmall]}>
-                        <Title style={styles.sectionTitle}>Comparación de Datos</Title>
-                        <ComparisonCharts />
                     </View>
                 </View>
             </ScrollView>
@@ -495,18 +456,6 @@ const styles = StyleSheet.create({
     card4: {
         backgroundColor: '#FFF3E0',
     },
-    card5: {
-        backgroundColor: '#E3F2FD',
-    },
-    card6: {
-        backgroundColor: '#E3F2FD',
-    },
-    card7: {
-        backgroundColor: '#E3F2FD',
-    },
-    card8: {
-        backgroundColor: '#E3F2FD',
-    },
     cardTitle: {
         fontSize: 16,
         fontWeight: 'bold',
@@ -526,12 +475,22 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         alignItems: 'center',
     },
+    image: {
+        width: 40,
+        height: 40,
+        resizeMode: 'contain',
+    },
     sectionTitle: {
         fontSize: 22,
         fontWeight: 'bold',
         marginTop: 20,
         marginBottom: 10,
         color: '#1A1A1A',
+    },
+    chartsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        marginVertical: 20,
     },
     summaryContainer: {
         flexDirection: 'row',
@@ -574,17 +533,6 @@ const styles = StyleSheet.create({
     },
     statusOngoing: {
         color: '#e67e22',
-    },
-    graphContainer: {
-        flex: 1,
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    graphContainerLarge: {
-        flexBasis: '48%',
-    },
-    graphContainerSmall: {
-        flexBasis: '100%',
     },
 });
 
